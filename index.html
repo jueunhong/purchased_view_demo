@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload and Display CSV as HTML Table</title>
+<style>
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  table, th, td {
+    border: 1px solid black;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #f2f2f2;
+  }
+  tr.highlight {
+    background-color: pink;
+  }
+  img {
+    max-width: 100px;
+    max-height: 100px;
+  }
+</style>
+</head>
+<body>
+
+<h2>Upload and Display CSV as HTML Table</h2>
+
+<input type="file" id="csv-file" accept=".csv"><br><br>
+
+<h3>Most Popular Styles</h3>
+<table id="style-summary-table"></table>
+
+<h3>Most Popular Primary Categories</h3>
+<table id="category-summary-table"></table>
+
+<h3>Most Popular Sellers</h3>
+<table id="seller-summary-table"></table>
+
+<div id="style-tables-container"></div>
+
+<script>
+  // Function to parse CSV content and generate HTML table
+  function csvToHtmlTable(rows, header) {
+    var html = '<thead><tr>';
+
+    // Create table headers
+    header.forEach(function(column) {
+      html += '<th>' + column.trim() + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    // Create table rows
+    rows.forEach(function(row) {
+      html += '<tr>';
+      row.forEach(function(cell, index) {
+        if (header[index].trim() === '이미지링크') {
+          html += '<td><img src="' + (cell ? cell.trim() : '') + '" alt="Image"></td>';
+        } else {
+          html += '<td>' + (cell ? cell.trim() : '') + '</td>';
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</tbody>';
+
+    return html;
+  }
+
+  // Function to calculate the most popular items
+  function calculatePopularItems(csvContent, columnName) {
+    var rows = csvContent.trim().split(/\r?\n/);
+    var header = rows[0].split(',');
+    var columnIndex = header.indexOf(columnName);
+    var counts = {};
+
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i].split(',');
+      if (row.length !== header.length) continue; // Skip malformed rows (if any)
+      var item = row[columnIndex] ? row[columnIndex].trim() : '';
+      if (item in counts) {
+        counts[item]++;
+      } else {
+        counts[item] = 1;
+      }
+    }
+
+    // Sort counts in descending order and highlight top 2 items
+    var sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    // Convert the counts to an HTML table
+    var html = '<thead><tr><th>' + columnName + '</th><th>판매 횟수</th></tr></thead><tbody>';
+    sortedCounts.forEach(function(entry, index) {
+      var highlightClass = index < 2 ? 'class="highlight"' : '';
+      html += '<tr ' + highlightClass + '><td>' + entry[0] + '</td><td>' + entry[1] + '</td></tr>';
+    });
+    html += '</tbody>';
+
+    return html;
+  }
+
+  // Function to group data by style and generate separate tables
+  function groupDataByStyle(csvContent) {
+    var rows = csvContent.trim().split(/\r?\n/);
+    var header = rows[0].split(',');
+    var styleIndex = header.indexOf('스타일');
+    var groupedData = {};
+
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i].split(',');
+      if (row.length !== header.length) continue; // Skip malformed rows (if any)
+      var style = row[styleIndex] ? row[styleIndex].trim() : '';
+      if (!groupedData[style]) {
+        groupedData[style] = [];
+      }
+      groupedData[style].push(row);
+    }
+
+    // Generate HTML for each style table
+    var containerHtml = '';
+    for (var style in groupedData) {
+      containerHtml += '<h3>Style: ' + style + '</h3>';
+      containerHtml += '<table>' + csvToHtmlTable(groupedData[style], header) + '</table>';
+    }
+
+    return containerHtml;
+  }
+
+  // Function to handle file upload
+  document.getElementById('csv-file').addEventListener('change', function(event) {
+    var file = event.target.files[0];
+    var reader = new FileReader();
+
+    reader.onload = function(event) {
+      var csvContent = event.target.result;
+      document.getElementById('style-summary-table').innerHTML = calculatePopularItems(csvContent, '스타일');
+      document.getElementById('category-summary-table').innerHTML = calculatePopularItems(csvContent, '"2차 카테고리"');
+      document.getElementById('seller-summary-table').innerHTML = calculatePopularItems(csvContent, '판매자');
+      document.getElementById('style-tables-container').innerHTML = groupDataByStyle(csvContent);
+    };
+
+    reader.onerror = function(event) {
+      console.error("Error reading file:", event.target.error);
+    };
+
+    if (file) {
+      reader.readAsText(file);
+    }
+  });
+</script>
+
+</body>
+</html>
+
+
